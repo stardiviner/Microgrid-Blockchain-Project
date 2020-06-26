@@ -7,14 +7,14 @@ const web3 = new Web3 ( new Web3.providers.HttpProvider("http://localhost:8545")
 
 
 //compiled contracts
-const exchange = require('../ethereum/exchange');
+const exchange = require('../ethereum/exchange'); // 用部署的ID来创建一个以太坊合约实例
 
 //calc functions
-const gaussian = require('./gaussian');
+const gaussian = require('./gaussian'); // 高斯计算函数？？？
 
 
-class Agent{
-    constructor(batteryCapacity, batteryBool){
+class Agent{           // 创建一个类用在 simulation/simulationUniformPrice.js 中
+    constructor(batteryCapacity, batteryBool){ // 数组构造函数
         this.timeRow = 0;
         this.balance =0;
         this.householdAddress = 0;
@@ -25,7 +25,7 @@ class Agent{
         this.WEI_IN_ETHER = 1000000000000000000;
         this.balanceHistory = new Array();
 
-        //elect related variables
+        //elect related variables 电相关的数据变量
         this.batteryCapacity = batteryCapacity;
         this.amountOfCharge = batteryCapacity;
         this.chargeHistory = [batteryCapacity];
@@ -50,15 +50,17 @@ class Agent{
 
     async loadSmartMeterData(historicData, baseElectValue, baseElectValueBattery, householdID){
         this.householdID = householdID;
-        
+        // 遍历所有CSV文件数据
         for (i=1; i<historicData.length-1; i++){
             let currentDemand = {
                 time: historicData[i][0], 
+                // 需求量:从CSV数据文件中读取第二列的数据 "use"
                 demand: parseFloat(historicData[i][1]) * 1000
             }
 
             let currentSupply = {
                 time: historicData[i][0], 
+                // 供应量：从CSV数据文件中读取第三列的数据 "gen"
                 supply: parseFloat(historicData[i][2]) * 1000
             }
             this.historicalDemand.push(currentDemand);
@@ -89,6 +91,7 @@ class Agent{
         this.balanceHistory.push(balance);
     }
 
+    // 设置国家电网的地址和价格
     async setNationalGrid(nationalGridPrice, nationalGridAddress ) {
         let nationalGridPriceEther = nationalGridPrice / 250; 
         let nationalGridPriceWei = await web3.utils.toWei(`${nationalGridPriceEther}`, 'ether');
@@ -285,11 +288,15 @@ class Agent{
         return sumPrices / 24; // returns the average over that entire day
     }
 
+    // 购买的逻辑
     async purchaseLogic() {
+        // [this.timeRow] 为交易记录的时间
+        // 下面两个数据变量分别是需求量和供应量
         let demand = this.historicalDemand[this.timeRow].demand;
         let supply = this.historicalSupply[this.timeRow].supply;
-        
+        // 多余电量
         let excessEnergy = 0;
+        // 电量短缺
         let shortageOfEnergy = 0;
         let time = (new Date()).getTime();
         let bidsCount = 0;
@@ -297,16 +304,18 @@ class Agent{
         let price = 0;
         let asksCount = 0;
         let ask = 0;
-
+        // 如果供大于求
         if(supply > demand) {
+            // 计算多余电量
             excessEnergy = supply - demand;
             excessEnergy = excessEnergy; 
         }
+        // 如果需求大于供应
         if(supply < demand) {
             shortageOfEnergy = demand - supply;
             shortageOfEnergy = shortageOfEnergy; 
         }
-
+        // 如果有电量
         if(this.hasBattery == true) {
             if(supply == demand) {
                 bidsCount = await exchange.methods.getBidsCount().call();
@@ -317,18 +326,20 @@ class Agent{
                     bid = await exchange.methods.getBid(bidsCount - 1).call();
 
                     if(this.historicalPrices[this.timeRow - 24] != null || this.historicalPrices[this.timeRow - 24] != undefined){
+                        // 设置平均价格为昨天的平均价格
                         let averagePrice = this.calculateYesterdayAverage()
+                        // 如果报价大于平均价格
                         if(bid.price > averagePrice){
-    
+                            // 根据多余电量查询价格
                             await this.placeAsk(bid[1], excessEnergy, time);
                         }
                     }
                 }
                 
             }
-
+            // 当有多余电量的时候
             if(excessEnergy > 0){
-                
+                // 如果充电量小于一半的电池容量就充电
                 if (this.amountOfCharge < 0.5 * this.batteryCapacity){
                     this.charge(excessEnergy);
                 }
@@ -356,12 +367,15 @@ class Agent{
                     
                     
                 }
+                // 如果充电量大于80%电池容量
                 else if (this.amountOfCharge >= this.batteryCapacity * 0.8 ){
+                    // 重新计算价格
                     price = this.formulatePrice();
                     price = await this.convertToWei(price);
                     await this.placeAsk(price, excessEnergy, time);
                 }
             }
+            // 如果电量短缺
             else if (shortageOfEnergy > 0){
                 let amountOfCharge = this.amountOfCharge;
                 let batteryCapacity = this.batteryCapacity;
@@ -388,7 +402,7 @@ class Agent{
                 }   
             }  
         }
-
+        // 如果没有电池
         if(this.hasBattery == false){
             if (excessEnergy > 0) {
                 bidsCount =await exchange.methods.getBidsCount().call();
@@ -419,6 +433,7 @@ class Agent{
         }
     }
 
+    // 计算需要的电量
     formulateAmount() {
         //look 10 hours ahead
         let timeInterval = 10;
@@ -451,7 +466,7 @@ class Agent{
         price = parseInt(price);
         return price;
     }
-
+    // 计算价格 (返回从两个平均价格计算后得出的最终平均价格)
     formulatePrice() {
             let {mean, stdev} = this.getDistributionParameters();
             let price = this.getCorrectValue(mean, stdev);
@@ -460,7 +475,7 @@ class Agent{
             }
             return price;
     }
-
+    // 获取电网参数：最低价格，最高价格，两个平均价格
     getDistributionParameters(){
         if(this.hasBattery == true){
             let minPrice = this.baseElectValueBattery;
@@ -476,7 +491,7 @@ class Agent{
             return { mean, stdev };
         } 
     }
-
+    // 计算最终平均价格
     getCorrectValue(mean, stdev){
         let standard = gaussian(mean, stdev);
         if(this.hasBattery == true){

@@ -21,16 +21,17 @@ beforeEach(async() => {
 
     accounts = await web3.eth.getAccounts();
  
-    //create agent instance
+    //create agent instance 创建一个代理实例
     agent = new Agent(5000, false);
 
-    agentAccount = await agent.getAccount(0);
-    agentBalance = await agent.getAgentBalance();
+    agentAccount = await agent.getAccount(0); // 返回账户
+    agentBalance = await agent.getAgentBalance(); // 返回余额
    
 });
 
 describe('Agents', () => {
 
+    // 测试显示100个bids
     it('can place 100 bids without an error', async () =>{
         try{
             for(i=0; i<=100; i++){
@@ -45,7 +46,9 @@ describe('Agents', () => {
         }catch(err){
             console.log(err);
         }
+        // 初始化代理账户数据
         let newAsksCount = 0;
+        // 创建两个相互测试的交易
         let bidsCount = await exchange.methods.getBidsCount().call();
         let asksCount = await exchange.methods.getAsksCount().call();
         accounts = await web3.eth.getAccounts();

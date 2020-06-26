@@ -1,4 +1,7 @@
+// regression-js is a JavaScript module containing a collection of linear
+// least-squares fitting methods for simple data analysis.
 const regression = require('regression');
+// 代数操作库
 const algebra = require('algebra.js');
 var Fraction = algebra.Fraction;
 var Expression = algebra.Expression;
@@ -6,7 +9,7 @@ var Equation = algebra.Equation;
 const WEI_IN_ETHER = 1000000000000000000;
 const PRICE_OF_ETHER = 250;
 
-
+// 定义了 除法操作符 （特殊数据结构的自定义计算）
 function slope(x1, y1, x2, y2) {
     if (x1 == x2) return false;
     return (y1 - y2) / (x1 - x2);
@@ -18,6 +21,7 @@ function yInt(x1, y1, x2, y2) {
     return y1 - slope(x1, y1, x2, y2) * x1 ;
 }
 
+// 获得交集坐标？
 function getIntersection(x11, y11, x12, y12, x21, y21, x22, y22) {
     var slope1, slope2, yint1, yint2, intx, inty;
     if (x11 == x21 && y11 == y21) return [x11, y11];
@@ -51,6 +55,7 @@ function nthIndex(str, pat, n){
     return i;
 }
 
+// 计算交集？
 function calculateIntersection(array1, array2){
     
     let array1DescendingPrice = [];
@@ -166,7 +171,7 @@ function sortAscending(a, b) {
         return (a.price < b.price) ? -1 : 1;
     }
 }
-
+// 排序数据
 function sortFunctionByAmount(a, b) {
     if (a[0] === b[0]) {
         return 0;

@@ -5,9 +5,9 @@ const ganache = require('ganache-cli');
 const Web3 = require('web3');
 let web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:8545"));
 const Agent = require('../models/agentUniformPrice.js');
-const AgentNationalGrid = require('../models/agentNationalGrid.js');
-const AgentBiomass = require('../models/agentBiomass.js');
-const plotly = require('plotly')('guibvieiraProject', 'Whl2UptBOq1gMvQrRGHk');
+const AgentNationalGrid = require('../models/agentNationalGrid.js'); // 国家电网 ？？？
+const AgentBiomass = require('../models/agentBiomass.js');           // Biomass 生物量？？？
+const plotly = require('plotly')('guibvieiraProject', 'Whl2UptBOq1gMvQrRGHk'); // 一个画图库 Plot.ly
 
 //compiled contracts
 //const factory = require('../ethereum/factory');
@@ -15,12 +15,12 @@ const exchange = require('../ethereum/exchange');
 
 //packages and functions imports
 const readCSV = require('./readFile.js');
-const {convertArrayGasToPounds, convertArrayWeiToPounds, convertWeiToPounds, convertGasToPounds} = require('./conversions.js');
+const {convertArrayGasToPounds, convertArrayWeiToPounds, convertWeiToPounds, convertGasToPounds} = require('./conversions.js'); // 导入转换函数
 let fs = require('fs');
 var csv = require("fast-csv");
 let parse = require('csv-parse');
 let async = require('async');
-let calculateIntersection = require('./intersectionBiomass');
+let calculateIntersection = require('./intersectionBiomass'); // 计算 bids 和 ask 双方的交集？
 let inputFile = './data/metadata-LCOE.csv';
 let id = new Array();
 let baseValue = new Array();
@@ -33,16 +33,17 @@ let numberOfBids = new Array();
 
 
 //customisable variables for Simulation
-const GASPRICE = 2000000000; //wei
-const simulationDays = 183;  // input
-const PRICE_OF_ETHER = 250; 
-const NATIONAL_GRID_PRICE = 0.1437; //input
+const GASPRICE = 2000000000; //wei 一个权重数值价格？
+const simulationDays = 183;  // input 模拟时间长度
+const PRICE_OF_ETHER = 250;  // 以太坊价格
+const NATIONAL_GRID_PRICE = 0.1437; //input 国家电网价格
 const BIOMASS_PRICE_MIN = 0.06; //input
 const BIOMASS_PRICE_MAX = 0.12; //input
 const WEI_IN_ETHER = 1000000000000000000;
 const csvResultsFileName = 'output_test3_6months_46agents.csv'; //input
 
 
+// 初始化所有数据
 async function init() {
     let unFilledBids = new Array();
     let unFilledAsks = new Array();
@@ -54,28 +55,35 @@ async function init() {
     let amountBidsPerT = new Array();
     let amountAsksPerT = new Array();
 
+    // 获取以太坊的所有账户
     var accounts = await web3.eth.getAccounts();
-
+    // 读取项目的 data/ 目录下的所有csv文件的数据
+    // householdHistoricData 为 `household_**.csv` 文件的数据
     let { metaData, householdHistoricData } = await getFiles();
 
     let biomassData = generateBiomassData(householdHistoricData);
+    // 获取电量数据？？？
+    let metaDataBattery = metaData.slice(0, Math.floor(metaData.length / 3)); // `slice' 是从数组中切一段数据。
+    // 为什么 metaaData 数据的长度除以3？
 
-    let metaDataBattery = metaData.slice(0, Math.floor(metaData.length / 3));
-
-    let householdDataBattery = householdHistoricData.slice(0, Math.floor(householdHistoricData.length / 3) );
-
+    // 房子的电量？？？
+    let householdDataBattery = householdHistoricData.slice(0, Math.floor(householdHistoricData.length / 3) ); // 取 householdHistoricData 数组的1/3
+    // 创建输入数据后的账户
     let { agents, agentNationalGrid, agentBiomass } = await createAgents(metaDataBattery, householdDataBattery, biomassData, 12000, true, BIOMASS_PRICE_MIN, BIOMASS_PRICE_MAX);
     
     let agentsBattery = agents;
-    let simulationDurationCalc = 365 / simulationDays;
-    let simDuration = householdHistoricData[0].length / Math.round(simulationDurationCalc);    //start simulation
+    let simulationDurationCalc = 365 / simulationDays; // 365 / 183 设定模拟时间周期
+    // simDuration 模拟的持续时间
+    let simDuration = householdHistoricData[0].length / Math.round(simulationDurationCalc);    // 取 householdHistoricData 数组第一个元素的长度除以 / 模拟周期
 
+    // 使用 accounts 中最后一个账户作为 ganache 国家电网地址
     let nationalGridAddress = await agentNationalGrid.getAccount(accounts.length-1); // make the last account from ganache to be the national grid address
+    // 使用 accounts 倒数第二个作为 Biomass 的账户
     let biomassAddress = await agentBiomass.getAccount(accounts.length-2);
 
-    simDuration = Math.round(simDuration);
-    let timeArray= new Array();
-    console.log(`using ${agentsBattery.length} amount of agents`);
+    simDuration = Math.round(simDuration); // float 浮点树时间取整
+    let timeArray= new Array(); // 时间序列
+    console.log(`using ${agents.length} amount of agents`);
     console.log('sim duration', simDuration);
     console.log('starting simulation');
 
@@ -83,25 +91,26 @@ async function init() {
         timeArray.push(i);
         console.log('time', i);
 
-        
+        // 记录开始模拟前的当前时间，用来后面进行计算模拟的时间
         agentBiomass.setCurrentTime(i);
+        // 获取正确的最终平均价格
         try{
             await agentBiomass.sellingLogic();
         }catch(err){
             console.log('agent biomass selling logic', err);
         }
 
-        
+        // 遍历所有账户的电量
         for (let j = 0; j < agentsBattery.length; j++){
-
+            // 记录当前时间
             agentsBattery[j].agent.setCurrentTime(i);
-           
 
-
+            // 如果模拟持续时间为0, 则设置国家电网的地址和价格
             if( i == 0) {
                 await agentsBattery[j].agent.setNationalGrid(NATIONAL_GRID_PRICE, nationalGridAddress);
             }
-           
+            
+            // 计算及获取购买电力的价格等信息
             try{
                 await agentsBattery[j].agent.purchaseLogic();
             } catch(err){
@@ -115,7 +124,7 @@ async function init() {
 
         //Decide on price and make transactions to respective receivers
         if (bids.length >= 2  && asks.length  >= 2 ){
-                   
+            
             let intersection = calculateIntersection(bids, asks); //first is price, next is amount, lastly address
             let pricePounds = convertWeiToPounds(intersection[1], WEI_IN_ETHER, PRICE_OF_ETHER);
             console.log('price in pounds', pricePounds);
@@ -300,7 +309,7 @@ async function init() {
         let successfulBidsElect = new Array();
         let biomassBidsElect = new Array();
         let biomassVolumeTemp2 = new Array();
-      
+        
         
         let agentsBalanceHistory = new Array();
 
@@ -310,7 +319,7 @@ async function init() {
 
         biomassBalance.push(agentBiomass.balanceHistory[i]);
         
-    
+        
         let biomassVolumeTemp = 0;
 
         for( let j=0; j < agentBiomass.successfulAskHistory.length; j++  ){
@@ -346,8 +355,8 @@ async function init() {
 
             }
 
-             //get black out occurances
-             for(let k = 0; k < agentsBattery[j].agent.blackOutTimes.length; k++ ) {
+            //get black out occurances
+            for(let k = 0; k < agentsBattery[j].agent.blackOutTimes.length; k++ ) {
 
                 if( agentsBattery[j].agent.blackOutTimes[k].timeRow == i){
                     blackOutInstances.push(agentsBattery[j].agent.blackOutTimes[k].blackOut);
@@ -382,10 +391,10 @@ async function init() {
                     succesfulBidsSumCosts.push(convertGasToPounds(agentsBattery[j].agent.successfulBidHistory[k].transactionCost, GASPRICE, WEI_IN_ETHER, PRICE_OF_ETHER));
                     succesfulBidsSumCosts.push(convertWeiToPounds(agentsBattery[j].agent.successfulBidHistory[k].transactionAmount, WEI_IN_ETHER, PRICE_OF_ETHER));
                     
-                if(agentsBattery[j].agent.successfulBidHistory[k].receiver == biomassAddress) {
-                    biomassBidsElect.push(agentsBattery[j].agent.successfulBidHistory[k].quantity)
-                    biomassVolumeTemp2.push(agentsBattery[j].agent.successfulBidHistory[k].transactionAmount)   
-                }
+                    if(agentsBattery[j].agent.successfulBidHistory[k].receiver == biomassAddress) {
+                        biomassBidsElect.push(agentsBattery[j].agent.successfulBidHistory[k].quantity)
+                        biomassVolumeTemp2.push(agentsBattery[j].agent.successfulBidHistory[k].transactionAmount)   
+                    }
                 }
             }
 
@@ -508,7 +517,7 @@ async function init() {
         if(agentBalanceAverage.length > 0) {
             hourlyExpenditure[i] = agentBalanceAverage[i-1] - agentBalanceAverage[i];
         }
-       
+        
         //calculate day averages
         if( i > 0){
             if(i % 24 == 0) {  
@@ -540,7 +549,7 @@ async function init() {
                     }
 
                     let dayAverageExpenditure = Math.abs(finalAverageBalance - initialAverageBalance);
-    
+                    
                     if(finalAverageBalance != null){
                         averageExpenditureDay[i] = dayAverageExpenditure;
                     }
@@ -609,7 +618,7 @@ async function init() {
     console.log(`writing results of simulation to csv file : ${csvResultsFileName}`);
 
     var csvStream = csv.createWriteStream({ headers: true }),
-    writableStream = fs.createWriteStream(csvResultsFileName);
+        writableStream = fs.createWriteStream(csvResultsFileName);
 
     writableStream.on("finish", function () {
         console.log("DONE!");
@@ -617,7 +626,7 @@ async function init() {
     
     csvStream.pipe(writableStream);
     for(let i = 0; i < csvData.length; i++){
-    csvStream.write(csvData[i]);
+        csvStream.write(csvData[i]);
     }
     csvStream.end();
 };
@@ -628,17 +637,17 @@ function standardDeviation(values){
     var avg = average(values);
     
     var squareDiffs = values.map(function(value){
-      var diff = value - avg;
-      var sqrDiff = diff * diff;
-      return sqrDiff;
+        var diff = value - avg;
+        var sqrDiff = diff * diff;
+        return sqrDiff;
     });
     
     var avgSquareDiff = average(squareDiffs);
-  
+    
     var stdDev = Math.sqrt(avgSquareDiff);
     return stdDev;
 }
-  
+
 function average(data){
     var sum = data.reduce(function(sum, value){
         return sum + value;
@@ -648,6 +657,7 @@ function average(data){
     return avg;
 }
 
+// 读取文件开头定义的csv元数据定义文件 './data/metadata-LCOE.csv'
 async function loadData(inputFile){
     let resultSet = await readCSV(inputFile);
     return resultSet;
@@ -665,21 +675,26 @@ async function getFiles() {
     let householdHistoricData = new Array();
     let metaData= await loadData(inputFile);
 
+    // 删除第一行
     metaData = deleteRow(metaData, 0);// remove header of file
 
+    // 遍历所有CSV数据
     for (i = 0; i < metaData.length; i++){
-            id.push( metaData[i][0] );
-            baseValue.push( metaData[i][2] );
-            baseValueBattery.push( metaData[i][3] );
-            householdFiles.push(`./data/household_${id[i]}.csv`); // `householdFile
+        id.push( metaData[i][0] );
+        baseValue.push( metaData[i][2] );
+        baseValueBattery.push( metaData[i][3] );
+        // 读取所有 csv 数据文件到数组变量，用于下面遍历
+        householdFiles.push(`./data/household_${id[i]}.csv`); // `householdFile
     }
 
+    // 加载所有 household 的所有 csv 数据文件
     for (const file of householdFiles){
         householdHistoricData.push( await loadData(file));
     }
     return { metaData, householdHistoricData};
 }
 
+// 创建交易Agent账户
 async function createAgents(metaData, householdHistoricData, biomassData, batteryCapacity, batteryBool, BIOMASS_PRICE_MIN, BIOMASS_PRICE_MAX) {
     console.log('creating agents...');
     let agents = new Array();
@@ -688,11 +703,12 @@ async function createAgents(metaData, householdHistoricData, biomassData, batter
 
     agentBiomass.loadData(biomassData);
 
-        for (const item in metaData){
+    for (const item in metaData){
 
+        // 创建一个账户实例，将数据传入
         //creation of agents and feeding the data in
         agent = new Agent(batteryCapacity, batteryBool); //no battery capacity passed
-        
+        // 返回账户
         agentAccount = await agent.getAccount(item);
         
         //household = await agent.deployContract();
@@ -703,8 +719,8 @@ async function createAgents(metaData, householdHistoricData, biomassData, batter
             agent,
             agentAccount
         }
-        agents.push(newAgent);      
-        }
+        agents.push(newAgent);
+    }
     return { agents, agentNationalGrid,agentBiomass };
 }
 
@@ -799,7 +815,7 @@ function findMatch() {
         let minimumIndex = indexOfSmallest(temp);
         matchingOrders.push(new Array(bids[i], asks[minimumIndex]));
     }
-   
+    
     for(let j=0; j < bids.length; j++){
         if ( matchingOrders.includes(bids[j]) == false){
             nonMatchedBids = bids[j];
@@ -819,31 +835,33 @@ function findMatch() {
 function indexOfSmallest(a) {
     var lowest = 0;
     for (var i = 1; i < a.length; i++) {
-     if (a[i] < a[lowest]) lowest = i;
+        if (a[i] < a[lowest]) lowest = i;
     }
     return lowest;
 }
 
+// 移除第一行
 function removeFirsRow(householdHistoricData) { 
     let tempArray = new Array();
-   
-       for(let i = 1; i < householdHistoricData.length; i++) {
-           tempArray.push(householdHistoricData[i])
-       }
-   
+    
+    // 把除了第一行外的数据放到了一个新的数组并返回
+    for(let i = 1; i < householdHistoricData.length; i++) {
+        tempArray.push(householdHistoricData[i])
+    }
+    
     return tempArray;
-   }
-   
+}
+
 function generateBiomassData(householdHistoricData) {
     let biomassData = Array(householdHistoricData[0].length).fill(0);
     
     for(let i = 0; i < householdHistoricData.length; i++) {
 
-    
+        // 移除第一行
         let singleHousehold = removeFirsRow(householdHistoricData[i]);
 
         for(let j = 0; j < singleHousehold.length; j++) {
-
+            // 这里是核心的对 Biomass 数据进行计算的代码
             biomassData[j] += singleHousehold[j][1] * 0.9; //satisfy 90% of their needs
 
         }
