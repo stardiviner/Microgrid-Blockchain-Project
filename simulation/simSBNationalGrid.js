@@ -410,11 +410,11 @@ async function init() {
 
                 for (let j = i - 24; j < i; j++){
 
-                    calcAverageTransactions[j] = averageNumberTransactions[j];
-                    calcAverageNatGridPurchases[j] = averageNationalGridPurchases[j];
-                    calcAverageAsksDay[j] = amountAsksPerT[j];
-                    calcAverageBidsDay[j] = amountBidsPerT[j];
-                    calcTradingVolume[j] = successfulBidsAggAmount[j];
+                    calcAverageTransactions[j] = averageNumberTransactions[j]; // 对应输出csv文件的 W 列 average_transaction_hourly
+                    calcAverageNatGridPurchases[j] = averageNationalGridPurchases[j]; // 对应输出的csv文件的 AD 列 nat_grid_purchases_day
+                    calcAverageAsksDay[j] = amountAsksPerT[j]; // 对应输出的csv文件的 AA 列 avg_asks_day
+                    calcAverageBidsDay[j] = amountBidsPerT[j]; // 对应输出的csv文件的 Z 列 avg_bids_day
+                    calcTradingVolume[j] = successfulBidsAggAmount[j]; // 对应输出的csv文件的 W 列 no_market_transactions
 
                     if(j == i - 24) {
                         initialAverageBalance = agentBalanceAverage[j];
@@ -430,11 +430,11 @@ async function init() {
                         averageExpenditureDay[i] = dayAverageExpenditure;
                     }
                     else if (finalAverageBalance == null){
-                        averageExpenditureDay[i] = 0;
+                        averageExpenditureDay[i] = 0; // 输出的 csv 文件 V 列 average_expenditure_hourly
                     }
                 }
 
-                dailyVolume[i] = calcTradingVolume.reduce((a, b) => a + b, 0);
+                dailyVolume[i] = calcTradingVolume.reduce((a, b) => a + b, 0); // 对应输出的csv文件的 W 列 no_market_transactions
                 averageNumberTransactionsDay[i] = calcAverageTransactions.reduce((a, b) => a + b, 0);
                 averageNationalGridPurchasesDay[i] = calcAverageNatGridPurchases.reduce((a, b) => a + b, 0);
                 averageAsksDay[i] = (calcAverageAsksDay.reduce((a, b) => a + b, 0))/ agentsBattery.length;
@@ -451,7 +451,7 @@ async function init() {
         dailyVolume = Array.from(dailyVolume, item => item || 0);
 
         
-
+        // important 这个和CSV输出文件中所有的列对应的变量名
         let newCsvEntry = {
             time: i,
             agg_demand: aggregatedDemand[i],

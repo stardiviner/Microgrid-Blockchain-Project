@@ -20,11 +20,14 @@ let fs = require('fs');
 var csv = require("fast-csv");
 let parse = require('csv-parse');
 let async = require('async');
-let calculateIntersection = require('./intersectionBiomass'); // 计算 bids 和 ask 双方的交集？
+// 计算 bids 和 ask 双方的出价和要价是否一致，一致则能达成交易？
+let calculateIntersection = require('./intersectionBiomass');
+
+// data/metadata-LCOE.csv
 let inputFile = './data/metadata-LCOE.csv';
-let id = new Array();
-let baseValue = new Array();
-let baseValueBattery = new Array();
+let id = new Array();           // column "dataid"
+let baseValue = new Array();    // column "baseValue"
+let baseValueBattery = new Array(); // column "baseValueBatter"
 
 let agentsNoBattery = new Array();
 let agentsBattery = new Array();
@@ -33,13 +36,13 @@ let numberOfBids = new Array();
 
 
 //customisable variables for Simulation
-const GASPRICE = 2000000000; //wei 一个权重数值价格？
-const simulationDays = 183;  // input 模拟时间长度
-const PRICE_OF_ETHER = 250;  // 以太坊价格
-const NATIONAL_GRID_PRICE = 0.1437; //input 国家电网价格
+const GASPRICE = 2000000000; //wei 以太坊的最小单位
+const simulationDays = 183;  // input 模拟时间长度 ???
+const PRICE_OF_ETHER = 250;  // 以太坊价格 = 250欧元
+const NATIONAL_GRID_PRICE = 0.1437; //input 国家电网价格 = 0.1437 ETHER
 const BIOMASS_PRICE_MIN = 0.06; //input
 const BIOMASS_PRICE_MAX = 0.12; //input
-const WEI_IN_ETHER = 1000000000000000000;
+const WEI_IN_ETHER = 1000000000000000000;                       // 1 wei = 10^18 ETHER
 const csvResultsFileName = 'output_test3_6months_46agents.csv'; //input
 
 
@@ -131,11 +134,13 @@ async function init() {
             let paidBids = new Array();
 
             //sort by decreasing amount
+            // 按照amount降序排序 bids / asks
             bids = bids.sort(sortByAmount);
             asks = asks.sort(sortByAmount);
             numberOfBids.push(bids.length);
 
             //populate every agent with the closing price for this time step
+            // 返回每个账户的最终价格
             for (let j = 0; j < agentsBattery.length; j++) {
                 agentsBattery[j].agent.historicalPrices[i] = intersection[1];
             }
@@ -154,6 +159,7 @@ async function init() {
             // console.log('asks length after matching', asks.length);
 
             //take care of unfilled bids or asks
+            // 如果还有没有填充的 bids / asks
             if(bids.length > 0) {
                 for (let i = 0; i < bids.length; i++){
                     let obj = agentsBattery.find(function (obj) { return obj.agentAccount === bids[i].address; });
@@ -161,13 +167,16 @@ async function init() {
                     unFilledBids.push(bids[i]);
                 }
             }
+            // 如果有Ask序列待执行
             if(asks.length > 0) {
                 for (let i = 0; i < asks.length; i++){
 
                     if( asks[i].address == biomassAddress) {
+                        // 添加失败的Ask请求到记录中
                         agentBiomass.addUnsuccessfulAsk(asks[i]);
                     }
                     else {
+                        // 查找账户
                         let obj = agentsBattery.find(function (obj) { return obj.agentAccount === asks[i].address; });
                         obj.agent.discharge(asks[i].amount);
                         unFilledAsks.push(asks[i]);
@@ -316,15 +325,15 @@ async function init() {
 
         //conversion from wei to pounds
         historicalPricesPlot[i] = convertWeiToPounds(agentsBattery[0].agent.historicalPrices[i], WEI_IN_ETHER, PRICE_OF_ETHER);
-
+        // 将历史余额加到自然能发电余额
         biomassBalance.push(agentBiomass.balanceHistory[i]);
         
-        
+        // 所有成功要价交易的总额
         let biomassVolumeTemp = 0;
 
         for( let j=0; j < agentBiomass.successfulAskHistory.length; j++  ){
             if( agentBiomass.successfulAskHistory[j].timeRow == i){
-                biomassVolumeTemp += agentBiomass.successfulAskHistory[j].amount;
+                biomassVolumeTemp += agentBiomass.successfulAskHistory[j].amount; // amount 是电量
             } 
         }
         if(biomassVolumeTemp == 0){
@@ -533,10 +542,11 @@ async function init() {
 
                 for (let j = i - 24; j < i; j++){
 
+                    // 对应输出的CSV文件
                     calcAverageTransactions[j] = averageNumberTransactions[j];
                     calcAverageNatGridPurchases[j] = averageNationalGridPurchases[j];
                     calcNationalGridTransactionDay[j] = nationalGridPurchases[i];
-                    calcAverageAsksDay[j] = amountAsksPerT[j];
+                    calcAverageAsksDay[j] = amountAsksPerT[j]; // 24小时的时间间隙
                     calcAverageBidsDay[j] = amountBidsPerT[j];
                     calcTradingVolume[j] = successfulBidsAggAmount[j];
 
@@ -724,6 +734,7 @@ async function createAgents(metaData, householdHistoricData, biomassData, batter
     return { agents, agentNationalGrid,agentBiomass };
 }
 
+// 获得交易报价 bids/asks
 async function getExchangeBids() {
     let bids = new Array();
     let asks = new Array();
@@ -767,7 +778,7 @@ async function getExchangeBids() {
     return { bids, asks };
 }
 
-//decreasing amount
+//decreasing amount  按照Amount的降序排序
 function sortByAmount(a, b) {
     if (a.amount === b.amount) {
         return 0;
@@ -776,7 +787,7 @@ function sortByAmount(a, b) {
         return (a.amount > b.amount) ? -1 : 1;
     }
 }
-
+// 清楚交易市场
 async function clearMarket() {
     let bidsCount = await exchange.methods.getBidsCount().call();
     let asksCount = await exchange.methods.getAsksCount().call();
@@ -862,7 +873,9 @@ function generateBiomassData(householdHistoricData) {
 
         for(let j = 0; j < singleHousehold.length; j++) {
             // 这里是核心的对 Biomass 数据进行计算的代码
+            // ???
             biomassData[j] += singleHousehold[j][1] * 0.9; //satisfy 90% of their needs
+            //                  ^--- household_**.csv column "use"
 
         }
     }

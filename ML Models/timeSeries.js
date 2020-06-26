@@ -17,9 +17,10 @@ function deleteRow(arr, row) {
     return arr;
 }
 
+// generate other csv data files based on init csv file "data/household_26.csv"
 async function init(){
     let localminute = [];
-    let use = [];
+    let use = [];               // it is the colume "use" of csv file
     let data = [];
     let csvData = await loadData(inputFile);
     csvData = deleteRow(csvData, 0);// remove header of file
