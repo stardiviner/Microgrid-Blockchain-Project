@@ -4,7 +4,7 @@
 const ganache = require('ganache-cli');
 const Web3 = require('web3');
 web3 = new Web3( new Web3.providers.HttpProvider("http://localhost:8545"))
-const Agent = require('../models/agentSimulation.js');
+const Agent = require('../models/agentUniformPrice.js');
 const AgentNationalGrid = require('../models/agentNationalGrid.js');
 const plotly = require('plotly')("guibvieira", "oI36xfxoUbcdc5XR0pEK");
 
