@@ -4,7 +4,7 @@ const ganache = require('ganache-cli');
 const Web3 = require('web3');
 const web3 = new Web3( new Web3.providers.HttpProvider("http://localhost:7545"))
 const Agent = require('../models/agentSingle-Bid.js');
-const readCSV = require('../Simulation/readFile.js');
+const readCSV = require('../simulation/readFile.js');
 
 //compiled contracts
 const compiledHousehold = require('../ethereum/build/Household.json');

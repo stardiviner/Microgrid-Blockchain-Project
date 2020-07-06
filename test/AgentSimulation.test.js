@@ -5,7 +5,7 @@ const Web3 = require('web3');
 // const web3 = new Web3(ganache.provider());
 const web3 = new Web3( new Web3.providers.HttpProvider("http://localhost:8545"))
 const Agent = require('../models/agentUniformPrice.js');
-const readCSV = require('../Simulation/readFile.js');
+const readCSV = require('../simulation/readFile.js');
 
 //compiled contracts
 const exchange = require('../ethereum/exchange');
